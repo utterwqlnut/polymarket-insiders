@@ -5,9 +5,9 @@ import re
 import asyncio
 import itertools
 
-class API:
+class FlagAPI:
     def __init__(self,num_markets: int, suspicious_size: float, priority_queue: asyncio.PriorityQueue):
-        self.market_tokens = API.get_market_tokens(num_markets)
+        self.market_tokens = FlagAPI.get_market_tokens(num_markets)
         self.suspicious_size = suspicious_size
         self.priority_queue = priority_queue
         self.counter = itertools.count()
@@ -53,5 +53,5 @@ class API:
                                                                     "order_size": float(order["size"]),
                                                                     "timestamp": float(msg_json['timestamp'])}))
 pq = asyncio.PriorityQueue()
-api = API(30000,100000,pq)
+api = FlagAPI(30000,100000,pq)
 asyncio.run(api.websockets())
