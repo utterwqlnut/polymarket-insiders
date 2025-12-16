@@ -4,54 +4,67 @@ import requests
 import re
 import asyncio
 import itertools
+import copy
+import time
 
 class FlagAPI:
-    def __init__(self,num_markets: int, suspicious_size: float, priority_queue: asyncio.PriorityQueue):
-        self.market_tokens = FlagAPI.get_market_tokens(num_markets)
+    def __init__(self,
+                 suspicious_size: float, 
+                 priority_queue: asyncio.PriorityQueue, 
+                 max_trades_per_call: int,
+                 rate: int):
         self.suspicious_size = suspicious_size
         self.priority_queue = priority_queue
         self.counter = itertools.count()
-
-    def get_market_tokens(num_markets: int):
-        market_result = requests.get(f"https://gamma-api.polymarket.com/markets?limit={num_markets}&closed=false")
+        self.url = f"https://data-api.polymarket.com/trades?limit={max_trades_per_call}&takerOnly=true&offset=0&filterType=CASH&filterAmount={suspicious_size}"
+        self.rate = rate
         
-        if market_result.status_code != 200:
+        self.last_ts = None
+        self.last_hash = ""
+        self.lock = asyncio.Lock()
+
+    async def fetch(self,url):
+        trade_result = requests.get(url)
+        
+        if trade_result.status_code != 200:
             print("Unable to connect to polymarket api please try again")
             raise Exception("Failed to connect")
 
-        markets = market_result.json()
+        trades = trade_result.json()
         
-        tokens = [token 
-                  for market in markets 
-                  for token in re.findall(r"[0-9]+",market["clobTokenIds"])]
+        return trades
 
-        return tokens
-    
-    async def websockets(self):
-        async with connect("wss://ws-subscriptions-clob.polymarket.com/ws/market") as websocket:
-            await websocket.send(json.dumps({
-                "assets_ids": self.market_tokens,
-                "type": "market"
-            }))
 
-            while True:
-                asyncio.create_task(
-                    self.suspicious_message_handle(await websocket.recv()
-                ))
+    async def get_latest_trades(self):
+        while True:
+            _task = asyncio.create_task(self.suspicious_message_handle(self.url))
+            await asyncio.sleep(self.rate)
 
-    async def suspicious_message_handle(self,msg):
-        msg_json = json.loads(msg)
-        if msg_json['event_type'] == 'price_change':
-            for order in msg_json['price_changes']:
-                if float(order['size']) > self.suspicious_size:
-                    print(msg_json)
-                    await self.priority_queue.put((-1*float(order["size"]),
-                                                   next(self.counter),
-                                                   {"market_id": msg_json["market"],
-                                                                    "asset_id": order["asset_id"],
-                                                                    "order_hash": order["hash"],
-                                                                    "order_size": float(order["size"]),
-                                                                    "timestamp": float(msg_json['timestamp'])}))
-pq = asyncio.PriorityQueue()
-api = FlagAPI(30000,100000,pq)
-asyncio.run(api.websockets())
+    async def suspicious_message_handle(self,url):
+        '''
+        Producer: Flags excessivly large orders and enqueues them to the pq 
+        for user further analysis
+        '''
+        trades_json = await self.fetch(url)
+
+        async with self.lock:
+            last_ts_ = self.last_ts
+            last_hash_ = self.last_hash
+
+        for i,trade in enumerate(trades_json):
+            if i == 0:
+                async with self.lock:
+                    self.last_ts = float(trade["timestamp"])
+                    self.last_hash = trade["transactionHash"]
+
+            if last_ts_ != None and ( float(trade["timestamp"]) < last_ts_ or trade['transactionHash'] == last_hash_):
+                break
+
+            await self.priority_queue.put((-1*float(trade["size"]),
+                                            next(self.counter),
+                                            {"market_id": trade["conditionId"],
+                                                            "asset_id": trade["asset"],
+                                                            "trade_hash": trade["transactionHash"],
+                                                            "user": trade["proxyWallet"],
+                                                            "timestamp": float(trade['timestamp'])}))
+
