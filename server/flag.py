@@ -15,6 +15,7 @@ class FlagAPI:
                  max_trades_per_call: int,
                  rate: int,
                  session: aiohttp.ClientSession):
+
         self.suspicious_size = suspicious_size
         self.priority_queue = priority_queue
         self.counter = itertools.count()

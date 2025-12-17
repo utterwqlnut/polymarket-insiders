@@ -52,7 +52,7 @@ class UserChecker:
                 self.num_runs,
             )
 
-            await self.r.zadd("leaderboard",{info_dict["user"],prob})
-    
+            await self.r.zadd("leaderboard",{info_dict["user"]:prob})
+            await self.r.zremrangebyrank("leaderboard", 1000, -1) # Keep the top 100 insiders
 
 
