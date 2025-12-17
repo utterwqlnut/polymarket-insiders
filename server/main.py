@@ -26,10 +26,10 @@ async def run():
     session = aiohttp.ClientSession()
     args = get_args()
 
-    r = redis.Redis(
-        host=os.getenv("REDIS_HOST", "localhost"),
-        port=int(os.getenv("REDIS_PORT", 6379)),
-        password=os.getenv("REDIS_PASSWORD"),
+    redis_client = redis.from_url(
+        os.environ["REDIS_URL"],
+        decode_responses=True,
+        ssl=True,   # REQUIRED on Railway
     )
 
 
