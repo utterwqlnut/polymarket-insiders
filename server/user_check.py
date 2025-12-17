@@ -1,6 +1,4 @@
-from websockets.asyncio.client import connect
 import json
-import requests
 import re
 import asyncio
 import numpy as np

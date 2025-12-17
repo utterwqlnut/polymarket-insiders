@@ -7,6 +7,7 @@ import aiohttp
 import redis.asyncio as redis
 import uvicorn
 from api_endpoints import create_app
+from argparsing import get_args
 
 async def start_api(app):
     config = uvicorn.Config(
@@ -14,8 +15,8 @@ async def start_api(app):
         host="0.0.0.0",
         port=8000,
         loop="asyncio",
-        log_level="info",
     )
+
     server = uvicorn.Server(config)
     await server.serve()
 
@@ -23,11 +24,18 @@ async def start_api(app):
 async def run():
     executor = ProcessPoolExecutor(max_workers=os.cpu_count())
     session = aiohttp.ClientSession()
-    r = redis.Redis(host='localhost', port=6379, db=0)
+    args = get_args()
+
+    r = redis.Redis(
+        host=os.getenv("REDIS_HOST", "localhost"),
+        port=int(os.getenv("REDIS_PORT", 6379)),
+        password=os.getenv("REDIS_PASSWORD"),
+    )
+
 
     pq = asyncio.PriorityQueue()
-    api = FlagAPI(1000,pq,1000,5,session)
-    uc = UserChecker(pq,100,10000,executor,session,r)
+    api = FlagAPI(args.suspicious_size,pq,args.max_trades_per_call,args.rate,session)
+    uc = UserChecker(pq,args.limit_history,args.monte_carlo_runs,executor,session,r)
 
     app = create_app(r)
     

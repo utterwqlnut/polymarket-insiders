@@ -1,16 +1,31 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
+
 
 def create_app(redis_client):
     app = FastAPI()
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],   # OK for local dev
+        allow_origins=["*"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Mount static directory
+    app.mount(
+        "/frontend",
+        StaticFiles(directory="frontend"),
+        name="frontend",
+    )
+
+    @app.get("/")
+    async def index():
+        return FileResponse("frontend/index.html")
 
     @app.get("/leaderboard")
     async def leaderboard(page: int = 1, limit: int = 25):
@@ -21,7 +36,7 @@ def create_app(redis_client):
             "leaderboard",
             start,
             end,
-            withscores=True
+            withscores=True,
         )
 
         total = await redis_client.zcard("leaderboard")
@@ -33,11 +48,11 @@ def create_app(redis_client):
             "results": [
                 {
                     "rank": start + i + 1,
-                    "user": u.decode(),
+                    "user": u,
                     "prob": float(p),
                 }
                 for i, (u, p) in enumerate(data)
-            ]
+            ],
         }
 
     return app
