@@ -29,7 +29,6 @@ async def run():
     r = redis.from_url(
         os.environ["REDIS_URL"],
         decode_responses=True,
-        ssl=True,   # REQUIRED on Railway
     )
 
 
