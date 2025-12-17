@@ -6,13 +6,15 @@ import asyncio
 import itertools
 import copy
 import time
+import aiohttp
 
 class FlagAPI:
     def __init__(self,
                  suspicious_size: float, 
                  priority_queue: asyncio.PriorityQueue, 
                  max_trades_per_call: int,
-                 rate: int):
+                 rate: int,
+                 session: aiohttp.ClientSession):
         self.suspicious_size = suspicious_size
         self.priority_queue = priority_queue
         self.counter = itertools.count()
@@ -22,22 +24,15 @@ class FlagAPI:
         self.last_ts = None
         self.last_hash = ""
         self.lock = asyncio.Lock()
+        self.session = session
 
     async def fetch(self,url):
-        trade_result = requests.get(url)
-        
-        if trade_result.status_code != 200:
-            print("Unable to connect to polymarket api please try again")
-            raise Exception("Failed to connect")
-
-        trades = trade_result.json()
-        
-        return trades
-
+        async with self.session.get(url) as resp:
+            return await resp.json()
 
     async def get_latest_trades(self):
         while True:
-            _task = asyncio.create_task(self.suspicious_message_handle(self.url))
+            await self.suspicious_message_handle(self.url)
             await asyncio.sleep(self.rate)
 
     async def suspicious_message_handle(self,url):
@@ -68,3 +63,6 @@ class FlagAPI:
                                                             "user": trade["proxyWallet"],
                                                             "timestamp": float(trade['timestamp'])}))
 
+    async def close(self):
+        if self.session:
+            await self.session.close()
