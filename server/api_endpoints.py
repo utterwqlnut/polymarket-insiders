@@ -2,12 +2,20 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-import os
 
 
 def create_app(redis_client):
+    """
+    Create and configure the FastAPI application.
+
+    The application does not perform any heavy computation itself.
+    All ranking logic is assumed to be handled upstream and stored
+    in Redis as a sorted set.
+    """
+
     app = FastAPI()
 
+    # Allow cross-origin requests (frontend may be hosted separately)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -16,7 +24,7 @@ def create_app(redis_client):
         allow_headers=["*"],
     )
 
-    # Mount static directory
+    # Serve static frontend assets
     app.mount(
         "/frontend",
         StaticFiles(directory="frontend"),
@@ -25,10 +33,15 @@ def create_app(redis_client):
 
     @app.get("/")
     async def index():
+        """Serve the frontend entry point."""
         return FileResponse("frontend/index.html")
 
     @app.get("/leaderboard")
     async def leaderboard(page: int = 1, limit: int = 25):
+        """
+        Return a paginated leaderboard ordered by descending score.
+        """
+
         start = (page - 1) * limit
         end = start + limit - 1
 
@@ -48,10 +61,10 @@ def create_app(redis_client):
             "results": [
                 {
                     "rank": start + i + 1,
-                    "user": u,
-                    "prob": float(p),
+                    "user": user,
+                    "prob": float(score),
                 }
-                for i, (u, p) in enumerate(data)
+                for i, (user, score) in enumerate(data)
             ],
         }
 
