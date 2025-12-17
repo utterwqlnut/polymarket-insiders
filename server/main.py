@@ -26,7 +26,7 @@ async def run():
     session = aiohttp.ClientSession()
     args = get_args()
 
-    redis_client = redis.from_url(
+    r = redis.from_url(
         os.environ["REDIS_URL"],
         decode_responses=True,
         ssl=True,   # REQUIRED on Railway
