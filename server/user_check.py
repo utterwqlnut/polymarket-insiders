@@ -33,6 +33,13 @@ class UserChecker:
             "&sortDirection=DESC"
             "&user="
         )
+        self.url_cur_pos_no_user = (
+            "https://data-api.polymarket.com/positions"
+            f"?limit={limit}"
+            "&sortBy=RESOLVING"
+            "&sortDirection=ASC"
+            "&user="
+        )
         self.num_runs = num_runs
         self.executor = executor
         self.session = session
@@ -52,11 +59,16 @@ class UserChecker:
         """
         async with self.session.get(self.url_no_user + user) as resp:
             user_data = await resp.json()
+        
+        async with self.session.get(self.url_cur_pos_no_user + user) as resp:
+            user_cur_position_data = await resp.json()
+
+        user_data += user_cur_position_data
 
         user_trades = [
             (
                 trade["totalBought"],
-                trade["realizedPnl"],
+                trade["curPrice"],
                 trade["avgPrice"],
             )
             for trade in user_data
@@ -75,7 +87,9 @@ class UserChecker:
             user = info_dict["user"]
 
             user_closed_trades = await self.pull_user(user)
-
+            
+            if len(user_closed_trades) > 100:
+                continue
             # Skip users with insufficient data
             if user_closed_trades.ndim < 2:
                 continue

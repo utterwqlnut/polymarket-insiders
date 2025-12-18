@@ -1,7 +1,7 @@
 import numpy as np
 from numba import njit, prange
 
-PNL_TOLERANCE = 0.9
+PNL_TOLERANCE_YES = 0.9
 
 
 @njit(parallel=True)
@@ -35,17 +35,16 @@ def monte_carlo(closed_positions: np.ndarray, num_runs: int) -> float:
     # Compute realized PnL after filtering unresolved outcomes
     for i in range(len(closed_positions)):
         size = closed_positions[i, 0]
-        realized = closed_positions[i, 1]
+        final = closed_positions[i, 1]
         prob = closed_positions[i, 2]
 
-        if realized > 0:
-            if realized < PNL_TOLERANCE * size * (1.0 - prob):
-                continue
+        if final == 1:
             overall_pnl += size * (1.0 - prob)
-        else:
-            if realized > -PNL_TOLERANCE * size * prob:
-                continue
+        elif final == 0:
             overall_pnl -= size * prob
+        else:
+            # Not fully resolved
+            continue
 
     # Monte Carlo simulation
     for _ in prange(num_runs):
@@ -53,14 +52,11 @@ def monte_carlo(closed_positions: np.ndarray, num_runs: int) -> float:
 
         for i in range(len(closed_positions)):
             size = closed_positions[i, 0]
-            realized = closed_positions[i, 1]
+            final = closed_positions[i, 1]
             prob = closed_positions[i, 2]
 
-            # Skip  unresolved outcomes with expected payoff
-            if realized > 0 and realized < PNL_TOLERANCE * size * (1.0 - prob):
-                continue
-            if realized <= 0 and realized > -PNL_TOLERANCE * size * prob:
-                continue
+            if final != 1 and final != 0:
+                continue # Not fully resolved
 
             # Simulate win / loss
             if np.random.random() < prob:
