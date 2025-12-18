@@ -88,8 +88,6 @@ class UserChecker:
 
             user_closed_trades = await self.pull_user(user)
             
-            if len(user_closed_trades) > 100:
-                continue
             # Skip users with insufficient data
             if user_closed_trades.ndim < 2:
                 continue
