@@ -83,7 +83,7 @@ class FlagAPI:
             # Push into priority queue (largest trades first)
             await self.priority_queue.put(
                 (
-                    -float(trade["size"]),
+                    -float(trade["size"]*trade["price"]),
                     next(self.counter),
                     {
                         "market_id": trade["conditionId"],
