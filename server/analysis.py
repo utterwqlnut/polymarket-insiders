@@ -1,9 +1,6 @@
 import numpy as np
 from numba import njit, prange
 
-PNL_TOLERANCE_YES = 0.9
-
-
 @njit(parallel=True)
 def monte_carlo(closed_positions: np.ndarray, num_runs: int) -> float:
     """
