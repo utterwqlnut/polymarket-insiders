@@ -14,13 +14,16 @@ class FlagAPI:
         suspicious_size: float,
         priority_queue: asyncio.PriorityQueue,
         max_trades_per_call: int,
-        rate: int,
+        rate: float,
         session: aiohttp.ClientSession,
     ):
         self.suspicious_size = suspicious_size
         self.priority_queue = priority_queue
         self.counter = itertools.count()
 
+        self.markets = [
+            "0xb212f0d431d3926043e917a56dd4e0003b4f412e99b7c154ec0bdd9d90ffb009",
+       ]
         self.url = (
             "https://data-api.polymarket.com/trades"
             f"?limit={max_trades_per_call}"
@@ -30,12 +33,19 @@ class FlagAPI:
             f"&filterAmount={suspicious_size}"
         )
 
+        for market in self.markets:
+            self.url += "&market="+market
+
         self.rate = rate
         self.session = session
 
         self.last_ts = None
         self.last_hash = ""
         self.lock = asyncio.Lock()
+
+    async def warmup(self) -> None:
+        """Hit the trades endpoint once (DNS/TLS/pool + JSON decode)."""
+        await self.fetch(self.url)
 
     async def fetch(self, url):
         """Fetch JSON data from the Polymarket trades API."""

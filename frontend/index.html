@@ -40,6 +40,7 @@
         <th>Rank</th>
         <th>User</th>
         <th>Insider Score</th>
+        <th>Trading Age (days)</th>
       </tr>
     </thead>
     <tbody id="leaderboard"></tbody>
@@ -69,6 +70,7 @@
           <td>${row.rank}</td>
           <td>${row.user}</td>
           <td>${row.prob.toFixed(4)}</td>
+          <td>${row.trading_age_days != null ? row.trading_age_days.toFixed(1) : "—"}</td>
         `;
         tbody.appendChild(tr);
       });

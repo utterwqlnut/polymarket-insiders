@@ -54,18 +54,33 @@ def create_app(redis_client):
 
         total = await redis_client.zcard("leaderboard")
 
-        return {
-            "page": page,
-            "limit": limit,
-            "total": total,
-            "results": [
+        pipe = redis_client.pipeline()
+        for user, _score in data:
+            pipe.hgetall(f"user_meta:{user}")
+        meta_rows = await pipe.execute() if data else []
+
+        results = []
+        for i, (user, score) in enumerate(data):
+            meta = meta_rows[i] if i < len(meta_rows) else {}
+            first_trade_ts = meta.get("first_trade_ts")
+            trading_age_days = meta.get("trading_age_days")
+            results.append(
                 {
                     "rank": start + i + 1,
                     "user": user,
                     "prob": float(score),
+                    "first_trade_ts": int(first_trade_ts) if first_trade_ts else None,
+                    "trading_age_days": float(trading_age_days)
+                    if trading_age_days
+                    else None,
                 }
-                for i, (user, score) in enumerate(data)
-            ],
+            )
+
+        return {
+            "page": page,
+            "limit": limit,
+            "total": total,
+            "results": results,
         }
 
     return app
